@@ -42,7 +42,7 @@ static int wrapper(struct thread *td, void *syscall_args)
 static struct sysent wrapper_sysent = {
     1,  /* Number of arguments */
     wrapper /* implementing function */
-}
+};
 
 /* Define the offset in sysent[] where the new system call is to be allocated */
 static int offset = NO_SYSCALL; /* Default, using the next available slots offset in sysent table */
