@@ -1,4 +1,4 @@
-KMOD = file_hider
-SRCS = file_hider.c
+KMOD = wrapper
+SRCS = wrapper.c
 
 .include <bsd.kmod.mk>

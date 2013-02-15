@@ -1,14 +1,16 @@
 /*
  * Name:
- *      File Hider Module
+ *      Wrapper Module
  * Description:
- *      A system call module that installs a kernel service.User can send command to hide a path, either a file or a directory
+ *      A system call module that interprets commands and take actions accrodingly
  * Usage:
  *      TODO: Add usage here
  * Author:
  *      Hai Lang
- * Last Update:
+ * Date Created:
  *      2013-02-14
+ * Last Update:
+ *      2013-02-15
  *
 */
 #include <sys/types.h>
@@ -21,15 +23,15 @@
 #include <sys/sysproto.h>
 
 /* The system call's arguments */
-struct file_hider_args {
+struct wrapper_args {
     char *str;
 }
 
 /* The system call function */
-static int file_hider(struct thread * td, void *syscall_args)
+static int wrapper(struct thread *td, void *syscall_args)
 {
-    struct file_hider_args *args; /* local struct to receive syscall_args */
-    args = (struct file_hider_args *)syscall_args; /* receive syscall_args with casting */
+    struct wrapper_args *args; /* local struct to receive syscall_args */
+    args = (struct wrapper_args *)syscall_args; /* receive syscall_args with casting */
 
     printf("%s\n", args->str);
 
@@ -37,9 +39,9 @@ static int file_hider(struct thread * td, void *syscall_args)
 }
 
 /* Prepare sysent to register the new system call */
-static struct sysent file_hider_sysent = {
+static struct sysent wrapper_sysent = {
     1,  /* Number of arguments */
-    file_hider /* implementing function */
+    wrapper /* implementing function */
 }
 
 /* Define the offset in sysent[] where the new system call is to be allocated */
@@ -66,4 +68,4 @@ static int load(struct module *module, int cmd, void *arg)
 }
 
 /* Declare and register the system call module */
-SYSCALL_MODULE(file_hider, &offset, &file_hider_sysent, load, NULL);
+SYSCALL_MODULE(wrapper, &offset, &wrapper_sysent, load, NULL);
