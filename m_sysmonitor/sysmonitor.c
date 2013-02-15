@@ -2,7 +2,7 @@
  * Name:
  *      System Monitor Module
  * Description:
- *      A system call module that dumps system status periodically. Accepts interval parameter.
+ *      A system call module that dumps system status periodically.
  * Usage:
  *      TODO: Add usage here
  * Author:
@@ -24,7 +24,8 @@
 
 /* The system call's arguments */
 struct sysmonitor_args {
-    char *str;
+    int *target;
+    //int *mode;
 };
 
 /* The system call function */
@@ -33,9 +34,17 @@ static int sysmonitor(struct thread *td, void *syscall_args)
     struct sysmonitor_args *args; /* local struct to receive syscall_args */
     args = (struct sysmonitor_args *)syscall_args; /* receive syscall_args with casting */
 
-    while(1){
-        printf("%s\n", args->str);
-        sleep(5000)
+    int *target = args->target;
+    switch(target) {
+        case 0:
+            printf("Target 0 Received!");
+            break;
+        case 1:
+            printf("Target 1 Received!");
+            break;
+        default:
+            printf("Unsupported Target!");
+            break;
     }
 
     return (0);
