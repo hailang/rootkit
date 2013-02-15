@@ -25,7 +25,7 @@
 /* The system call's arguments */
 struct wrapper_args {
     char *str;
-}
+};
 
 /* The system call function */
 static int wrapper(struct thread *td, void *syscall_args)
