@@ -68,4 +68,4 @@ static int load(struct module *module, int cmd, void *arg)
 }
 
 /* Declare and register the system call module */
-SYSCALL_MODULE(sysmonitor, &offset, &sysmonitor_args, load, NULL);
+SYSCALL_MODULE(sysmonitor, &offset, &sysmonitor_sysent, load, NULL);
