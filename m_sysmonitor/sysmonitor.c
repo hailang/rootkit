@@ -34,7 +34,7 @@ static int sysmonitor(struct thread *td, void *syscall_args)
     struct sysmonitor_args *args; /* local struct to receive syscall_args */
     args = (struct sysmonitor_args *)syscall_args; /* receive syscall_args with casting */
 
-    int *target = args->target;
+    int target = *(args->target);
     switch(target) {
         case 0:
             printf("Target 0 Received!");
