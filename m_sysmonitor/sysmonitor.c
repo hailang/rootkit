@@ -39,7 +39,8 @@ static int sysmonitor(struct thread *td, void *syscall_args)
     int err = 0;
     err = copyin(&args->target, &target, sizeof(int));
     if (err == EFAULT){
-        return (err);
+        printf(err);
+        return (1);
     }
 
     switch(target) {
