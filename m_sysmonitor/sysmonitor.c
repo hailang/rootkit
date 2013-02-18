@@ -36,11 +36,10 @@ static int sysmonitor(struct thread *td, void *syscall_args)
 
     /* Copy args to kernel space */
     int target;
-    size_t size = sizeof(int);
     int err = 0;
-    err = copyin(&args->target, &target, size);
+    err = copyin(&args->target, &target, sizeof(int));
     if (err == EFAULT){
-        return (err)
+        return (err);
     }
 
     switch(target) {
