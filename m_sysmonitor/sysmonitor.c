@@ -37,7 +37,7 @@ static int sysmonitor(struct thread *td, void *syscall_args)
 
     /* Copy args to kernel space */
     char mode_copy[1024+1]; //with a \0 at the end.
-    if (copyin(args->target, &mode_copy, 1025) == EFAULT)
+    if (copyin(args->mode, &mode_copy, 1025) == EFAULT)
         return (EFAULT);
 
     switch(mode_copy) {
