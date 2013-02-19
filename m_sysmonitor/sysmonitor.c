@@ -36,15 +36,15 @@ static int sysmonitor(struct thread *td, void *syscall_args)
     args = (struct sysmonitor_args *)syscall_args; /* receive syscall_args with casting */
 
     /* Copy args to kernel space */
-    char mode_copy[1024+1]; //with a \0 at the end.
-    if (copyin(args->mode, &mode_copy, 1025) == EFAULT)
+    char mode_copy[2]; //with a \0 at the end.
+    if (copyin(args->mode, &mode_copy, 2) == EFAULT)
         return (EFAULT);
 
-    switch(mode_copy) {
-        scase '0':
+    switch(mode_copy[0]) {
+        case '0':
             printf("Target 0 Received!");
             break;
-        scase '1':
+        case '1':
             printf("Target 1 Received!");
             break;
         default:
