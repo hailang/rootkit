@@ -24,9 +24,8 @@
 
 /* The system call's arguments */
 struct sysmonitor_args {
-    //int target;
+    int target;
     //int *mode;
-    char *mode;
 };
 
 /* The system call function */
@@ -36,15 +35,19 @@ static int sysmonitor(struct thread *td, void *syscall_args)
     args = (struct sysmonitor_args *)syscall_args; /* receive syscall_args with casting */
 
     /* Copy args to kernel space */
-    char mode_copy[2]; //with a \0 at the end.
-    if (copyin(args->mode, &mode_copy, 2) == EFAULT)
+    int target;
+    int err = 0;
+    size_t int_size = sizeof(int);
+    err = copyin(uap->target, &target, int_size);
+    if (err == EFAULT)
+        printf("ERRRRRROR!!!");
         return (EFAULT);
 
-    switch(mode_copy[0]) {
-        case '0':
+    switch(target) {
+        case 0:
             printf("Target 0 Received!");
             break;
-        case '1':
+        case 1:
             printf("Target 1 Received!");
             break;
         default:
