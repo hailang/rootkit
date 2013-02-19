@@ -38,7 +38,7 @@ static int sysmonitor(struct thread *td, void *syscall_args)
     int target;
     int err = 0;
     size_t int_size = sizeof(int);
-    err = copyin(uap->target, &target, int_size);
+    err = copyin(args->target, &target, int_size);
     if (err == EFAULT)
         printf("ERRRRRROR!!!");
         return (EFAULT);
