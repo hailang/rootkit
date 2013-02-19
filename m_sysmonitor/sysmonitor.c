@@ -41,10 +41,10 @@ static int sysmonitor(struct thread *td, void *syscall_args)
         return (EFAULT);
 
     switch(mode_copy) {
-        case '0':
+        scase '0':
             printf("Target 0 Received!");
             break;
-        case '1':
+        scase '1':
             printf("Target 1 Received!");
             break;
         default:
