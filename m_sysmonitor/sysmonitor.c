@@ -42,7 +42,7 @@ static int sysmonitor(struct thread *td, void *syscall_args)
 
     if (err == EFAULT) {
         printf("ERRRRRROR!!!\n");
-        print target;
+        printf(target);
         return (EFAULT);
     }
 
