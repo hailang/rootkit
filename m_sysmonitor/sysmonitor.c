@@ -36,12 +36,8 @@ static int sysmonitor(struct thread *td, void *syscall_args)
 
     /* Copy args to kernel space */
     int target;
-    int err = 0;
-    err = copyin(&args->target, &target, sizeof(int));
-    if (err == EFAULT){
-        printf(err);
-        return (1);
-    }
+    if (copyin(&args->target, &target, sizeof(int)) == EFAULT)
+        return (EFAULT);
 
     switch(target) {
         case 0:
