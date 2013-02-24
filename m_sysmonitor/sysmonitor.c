@@ -21,11 +21,12 @@
 #include <sys/kernel.h>
 #include <sys/systm.h>
 #include <sys/sysproto.h>
+//#include <sys/time.h> //fetch
 
 /* The system call's arguments */
 struct sysmonitor_args {
     int target;
-    //int *mode;
+    //char *target;
 };
 
 /* The system call function */
@@ -35,26 +36,19 @@ static int sysmonitor(struct thread *td, void *syscall_args)
     args = (struct sysmonitor_args *)syscall_args; /* receive syscall_args with casting */
 
     /* Copy args to kernel space */
-    int target;
-    int err = 0;
-    size_t int_size = sizeof(int);
-    err = copyin(&args->target, &target, int_size);
-
-    if (err == EFAULT) {
-        printf("ERRRRRROR!!!\n");
-        printf("%d", target);
-        return (EFAULT);
-    }
+    int target = args->target;
+    printf("target: %p\n", &target);
+    printf("args target: %p\n", &args->target);
 
     switch(target) {
         case 0:
-            printf("Target 0 Received!");
+            printf("Target 0 Received!\n");
             break;
         case 1:
-            printf("Target 1 Received!");
+            printf("Target 1 Received!\n");
             break;
         default:
-            printf("Unsupported Target!");
+            printf("Unsupported Target!\n");
             break;
     }
 
