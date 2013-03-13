@@ -23,18 +23,18 @@ Notes
     - Immutability 
         + unlink hook 
         + rmdir hook
-    rename hook
-    chmod hook
-    chown hook
-    chflags hook
-    utimes hook
-    truncate hook
-->Invisibility
---->open hook
---->chdir hook
---->getdirentries hook
---->stat hook
---->lstat hook
+        + rename hook
+        + chmod hook
+        + chown hook
+        + chflags hook
+        + utimes hook
+        + truncate hook
+    - Invisibility
+        + open hook
+        + chdir hook
+        + getdirentries hook
+        + stat hook
+        + lstat hook
 3. Kernel / User Space Transition
 4. Character Device
-5. ICMP Injection (Director Commanding Control)
+5. ICMP Injection (Direct Commanding Control)
