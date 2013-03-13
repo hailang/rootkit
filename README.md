@@ -5,7 +5,7 @@ Reference: dl.packetstormsecurity.net/papers/unix/bsdkern.htm
 
 Feature
 -------
-Retriever:
+1. Retriever:
     - Module
         + A character device that communicates with controller
             - TODO:
@@ -14,7 +14,7 @@ Retriever:
         + Executioner
             - Userland application to execute the command received by the Retriever module
 
-Harvester:
+2. Harvester:
     - Module
         + A character deveice module that gathers victim's information (log, stats, etc)
             - TODO:
@@ -23,7 +23,7 @@ Harvester:
         + Inquisitor
             - Userland application to report information gathered by the Harvester module
 
-Protector:
+3. Protector:
     - Module
         + A system call module that protects the rootkit
             - TODO:
