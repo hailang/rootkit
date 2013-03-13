@@ -21,8 +21,8 @@ Notes
 
 2. Hooking TODO: Add Module / Process / Connection Protection
     - Immutability 
-    +    unlink hook 
-    +    rmdir hook
+        + unlink hook 
+        + rmdir hook
     rename hook
     chmod hook
     chown hook
